@@ -259,3 +259,62 @@ nested_lm_results |>
     ## 2 Queens             91.6  9.65                   -69.3                  -95.0
     ## 3 Brooklyn           69.6 21.0                    -92.2                 -106. 
     ## 4 Manhattan          95.7 27.1                   -124.                  -154.
+
+usa an “anonymous” function
+
+``` r
+nested_lm_results =
+  nyc_airbnb |>
+  nest(data = -borough) |>
+  mutate(
+    fits = map(data, \(df) lm(price ~ stars + room_type, data = df)),
+    results = map(fits, broom::tidy)
+  ) |>
+  select(borough, results) |>
+  unnest(results)
+
+nested_lm_results |>
+  select(borough, term, estimate) |>
+  pivot_wider(
+    names_from = term,
+    values_from = estimate
+  )
+```
+
+    ## # A tibble: 4 × 5
+    ##   borough   `(Intercept)` stars `room_typePrivate room` `room_typeShared room`
+    ##   <fct>             <dbl> <dbl>                   <dbl>                  <dbl>
+    ## 1 Bronx              90.1  4.45                   -52.9                  -70.5
+    ## 2 Queens             91.6  9.65                   -69.3                  -95.0
+    ## 3 Brooklyn           69.6 21.0                    -92.2                 -106. 
+    ## 4 Manhattan          95.7 27.1                   -124.                  -154.
+
+more example
+
+``` r
+manhattan_analysis = 
+  nyc_airbnb |>
+  filter(
+    borough == "Manhattan"
+  ) |>
+  nest(data = -neighbourhood) |>
+  mutate(
+    fits = map(data, \(df) lm(price ~ stars + room_type, data = df)),
+    results = map(fits, broom::tidy)
+  ) |>
+  select(neighbourhood, results) |>
+  unnest(results)
+```
+
+``` r
+manhattan_analysis |>
+  filter(term == "stars") |>
+  mutate(
+    neighbourhood = fct_reorder(neighbourhood, estimate)
+  ) |>
+  ggplot(aes(x = neighbourhood, y = estimate)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+![](linear_models_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
