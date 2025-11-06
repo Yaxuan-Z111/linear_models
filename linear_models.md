@@ -190,3 +190,72 @@ fit_interactions |>
 | boroughBrooklyn:room_typeShared room  |   47.797 |    13.895 |     3.440 |   0.001 |
 | boroughQueens:room_typeShared room    |   58.662 |    17.897 |     3.278 |   0.001 |
 | boroughBronx:room_typeShared room     |   83.089 |    42.451 |     1.957 |   0.050 |
+
+let’s just focus on brooklyn
+
+``` r
+nyc_airbnb |>
+  filter(borough == "Brooklyn") |>
+  lm(price ~ stars + room_type, data = _) |>
+  broom::tidy()
+```
+
+    ## # A tibble: 4 × 5
+    ##   term                  estimate std.error statistic   p.value
+    ##   <chr>                    <dbl>     <dbl>     <dbl>     <dbl>
+    ## 1 (Intercept)               69.6     14.0       4.96 7.27e-  7
+    ## 2 stars                     21.0      2.98      7.05 1.90e- 12
+    ## 3 room_typePrivate room    -92.2      2.72    -34.0  6.40e-242
+    ## 4 room_typeShared room    -106.       9.43    -11.2  4.15e- 29
+
+``` r
+lm_airbnb = function(df) {
+  lm(price ~ stars + room_type, data = df)
+}
+
+nyc_airbnb |>
+  filter(borough == "Queens") |>
+  lm_airbnb() |>
+  broom::tidy()
+```
+
+    ## # A tibble: 4 × 5
+    ##   term                  estimate std.error statistic  p.value
+    ##   <chr>                    <dbl>     <dbl>     <dbl>    <dbl>
+    ## 1 (Intercept)              91.6      25.8       3.54 4.00e- 4
+    ## 2 stars                     9.65      5.45      1.77 7.65e- 2
+    ## 3 room_typePrivate room   -69.3       4.92    -14.1  1.48e-43
+    ## 4 room_typeShared room    -95.0      11.3      -8.43 5.52e-17
+
+create a list of dataframes, and iterate to fit
+
+``` r
+nested_lm_results =
+nyc_airbnb |>
+  nest(data = -borough) |>
+  mutate(
+    fits = map(data, lm_airbnb),
+    results = map(fits, broom::tidy)
+  ) |>
+  select(borough, results) |>
+  unnest(results)
+```
+
+do some untidying
+
+``` r
+nested_lm_results |>
+  select(borough, term, estimate) |>
+  pivot_wider(
+    names_from = term,
+    values_from = estimate
+  )
+```
+
+    ## # A tibble: 4 × 5
+    ##   borough   `(Intercept)` stars `room_typePrivate room` `room_typeShared room`
+    ##   <fct>             <dbl> <dbl>                   <dbl>                  <dbl>
+    ## 1 Bronx              90.1  4.45                   -52.9                  -70.5
+    ## 2 Queens             91.6  9.65                   -69.3                  -95.0
+    ## 3 Brooklyn           69.6 21.0                    -92.2                 -106. 
+    ## 4 Manhattan          95.7 27.1                   -124.                  -154.
